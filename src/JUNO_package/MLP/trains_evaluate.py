@@ -3,6 +3,7 @@ import torch
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def train_test_loop(train_loader, test_loader, model, criterion, optimizer, n_epochs=100):
+    best_vloss = 1_000_000
     # Variables to store training and testing metrics
     train_losses = []
     test_losses = []
@@ -107,12 +108,18 @@ def train_test_loop(train_loader, test_loader, model, criterion, optimizer, n_ep
             diff_z_train = (all_train_labels[:,3]*17015 - all_train_preds[:,3]*17015).cpu().numpy()
             avg_diff_z_train.append(np.mean(diff_z_train))
             std_diff_z_train.append(np.std(diff_z_train))
-    
-    diff_E_test = (all_test_labels[:, 0]*100 - all_test_preds[:, 0]*100).cpu().numpy()
-    diff_x_test = (all_test_labels[:, 1]*17015 - all_test_preds[:, 1]*17015).cpu().numpy()
-    diff_y_test = (all_test_labels[:, 2]*17015 - all_test_preds[:, 2]*17015).cpu().numpy()
-    diff_z_test = (all_test_labels[:, 3]*17015 - all_test_preds[:, 3]*17015).cpu().numpy()
 
+        if avg_test_loss < best_vloss:
+            best_vloss = avg_test_loss
+
+            diff_E_test = (all_test_labels[:, 0]*100 - all_test_preds[:, 0]*100).cpu().numpy()
+            diff_x_test = (all_test_labels[:, 1]*17015 - all_test_preds[:, 1]*17015).cpu().numpy()
+            diff_y_test = (all_test_labels[:, 2]*17015 - all_test_preds[:, 2]*17015).cpu().numpy()
+            diff_z_test = (all_test_labels[:, 3]*17015 - all_test_preds[:, 3]*17015).cpu().numpy()
+
+            model_path = "/sps/l2it/lperon/JUNO/saved_models/MLP/JUNO_MLP_model.pth"
+            torch.save(model.state_dict(), model_path)
+    
     return (train_losses, test_losses, 
             min_train_loss, min_test_loss, 
             avg_diff_E_train, avg_diff_x_train, avg_diff_y_train, avg_diff_z_train, 
