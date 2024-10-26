@@ -6,12 +6,12 @@ This project summarizes the work done by L. Péron, S. Caillou and J. Stark in o
 
 - Lukas :
     - [ ] Add examples codes for :
-        - [ ] Event display 3d (animation)
-        - [ ] Event display 2d
+        - [x] Event display 3d (animation)
+        - [x] Event display 2d
         - [ ] Calibration
-        - [ ] Data generation for MLP
+        - [x] Data generation for MLP
         - [ ] Data generation for GNN
-    - [ ] Add docstring to MLP sub package
-    - [ ] Add error handling to MLP sub package
+    - [x] Add docstring to MLP sub package
+    - [x] Add error handling to MLP sub package
     - [ ] Add GNN sub package
     - [ ] Add GNN example code
