@@ -72,6 +72,7 @@ def train_test_loop(train_loader, test_loader, scaler_y_train, scaler_y_test, mo
     - Calculates differences in predicted and true values for metrics at every 10th epoch.
     """
     best_vloss = 1_000_000
+    opti_epochs = 0
     # Variables to store training and testing metrics
     train_losses = []
     test_losses = []
@@ -184,15 +185,16 @@ def train_test_loop(train_loader, test_loader, scaler_y_train, scaler_y_test, mo
         # Save the best model
         if avg_test_loss < best_vloss:
             best_vloss = avg_test_loss
+            opti_epochs = epoch
             
             diff_E_test = (all_test_labels[:, 0] - all_test_preds[:, 0])
             diff_x_test = (all_test_labels[:, 1] - all_test_preds[:, 1])
             diff_y_test = (all_test_labels[:, 2] - all_test_preds[:, 2])
             diff_z_test = (all_test_labels[:, 3] - all_test_preds[:, 3])
 
-            model_path = "model.pth"  # Path to save the best model
+            model_path = f"/pbs/home/l/lperon/work_JUNO/models/MLP/model.pth"  # Path to save the best model
             torch.save(model.state_dict(), model_path)
-    
+    print(f'Optimal epoch = {opti_epochs}')
     return (train_losses, test_losses,
             avg_diff_E_train, avg_diff_x_train, avg_diff_y_train, avg_diff_z_train, 
             std_diff_E_train, std_diff_x_train, std_diff_y_train, std_diff_z_train, 
