@@ -8,7 +8,7 @@ This project summarizes the work done by L. Péron, S. Caillou and J. Stark in o
     - [ ] Add examples codes for :
         - [x] ~~Event display 3d (animation)~~
         - [x] ~~Event display 2d~~
-        - [ ] Calibration
+        - [x] ~~Calibration~~
         - [x] ~~Data generation for MLP~~
         - [ ] Data generation for GNN
     - [x] ~~Add docstring to MLP sub package~~
