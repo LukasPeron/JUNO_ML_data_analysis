@@ -21,14 +21,16 @@ Error Handling:
 
 Dependencies:
 -------------
+- numpy
 - matplotlib
 
 Instructions:
 -------------
-1. Ensure that `matplotlib` is installed and configured in your environment.
+1. Ensure that `matplotlib` and `numpy` are installed and configured in your environment.
 2. Call `plot_all_figures` with appropriate metric lists and model parameters to save visualizations.
 """
 
+import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # Use 'Agg' backend if running without display
 import matplotlib.pyplot as plt
@@ -167,8 +169,8 @@ def plot_all_figures(train_losses, test_losses,
             ['E', 'x', 'y', 'z'])):
 
         plt.subplot(2, 2, i + 1)
-        plt.hist(diff_train, bins=50, color='b', alpha=0.7, density=True, label='Train')
-        plt.hist(diff_test, bins=50, color='r', alpha=0.7, density=True, label='Test')
+        plt.hist(diff_train, bins=50, color='b', alpha=0.7, density=True, label=f'Train\n $\langle {coord}\\rangle = {np.mean(diff_train):.2f}$ {unit}\n $\sigma_{coord} = {np.std(diff_train):.2f}$ {unit}')
+        plt.hist(diff_test, bins=50, color='r', alpha=0.7, density=True, label=f'Test\n $\langle {coord}\\rangle = {np.mean(diff_test):.2f}$ {unit}\n $\sigma_{coord} = {np.std(diff_test):.2f} $ {unit}')
         plt.xlabel(fr'${coord}_{{true}} - {coord}_{{model}}$', fontsize=14)
         plt.legend()
 
