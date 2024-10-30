@@ -5,7 +5,7 @@ This project summarizes the work done by L. Péron, S. Caillou and J. Stark in o
 ## To do list
 
 - Lukas :
-    - [ ] Add examples codes for :
+    - [x] Add examples codes for :
         - [x] ~~Event display 3d (animation)~~
         - [x] ~~Event display 2d~~
         - [x] ~~Calibration~~
