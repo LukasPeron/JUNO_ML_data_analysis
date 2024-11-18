@@ -5,6 +5,9 @@ This script defines a function to train and evaluate a neural network model for 
 function performs a training loop over several epochs, calculates evaluation metrics on the training and test sets, 
 and saves the model state if it achieves the best validation loss.
 
+Created by: Lukas Peron
+Last Update: 18/11/2024
+
 Overview:
 ---------
 The script performs the following steps:
@@ -33,7 +36,7 @@ import numpy as np
 import torch
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-def train_test_loop(train_loader, test_loader, scaler_y_train, scaler_y_test, model, criterion, optimizer, n_epochs=1000):
+def train_test_loop(data_type, train_loader, test_loader, scaler_y_train, scaler_y_test, model, criterion, optimizer, n_epochs=1000):
     """
     Train and evaluate the model on JUNO simulation data.
 
@@ -150,55 +153,74 @@ def train_test_loop(train_loader, test_loader, scaler_y_train, scaler_y_test, mo
 
         # Calculate differences every 10 epochs
         if epoch % 10 == 0:
-            diff_E = all_test_labels[:, 0] - all_test_preds[:, 0]
-            avg_diff_E_test.append(np.mean(diff_E))
-            std_diff_E_test.append(np.std(diff_E))
+            if data_type=="both" or data_type=="energy":
+                diff_E = all_test_labels[:, 0] - all_test_preds[:, 0]
+                avg_diff_E_test.append(np.mean(diff_E))
+                std_diff_E_test.append(np.std(diff_E))
 
-            diff_x = all_test_labels[:, 1] - all_test_preds[:, 1]
-            avg_diff_x_test.append(np.mean(diff_x))
-            std_diff_x_test.append(np.std(diff_x))
+                diff_E_train = all_train_labels[:, 0] - all_train_preds[:, 0]
+                avg_diff_E_train.append(np.mean(diff_E_train))
+                std_diff_E_train.append(np.std(diff_E_train))
+                
+            if data_type=="both" or data_type=="spatial":
+                diff_x = all_test_labels[:, 1] - all_test_preds[:, 1]
+                avg_diff_x_test.append(np.mean(diff_x))
+                std_diff_x_test.append(np.std(diff_x))
 
-            diff_y = all_test_labels[:, 2] - all_test_preds[:, 2]
-            avg_diff_y_test.append(np.mean(diff_y))
-            std_diff_y_test.append(np.std(diff_y))
+                diff_y = all_test_labels[:, 2] - all_test_preds[:, 2]
+                avg_diff_y_test.append(np.mean(diff_y))
+                std_diff_y_test.append(np.std(diff_y))
 
-            diff_z = all_test_labels[:, 3] - all_test_preds[:, 3]
-            avg_diff_z_test.append(np.mean(diff_z))
-            std_diff_z_test.append(np.std(diff_z))
+                diff_z = all_test_labels[:, 3] - all_test_preds[:, 3]
+                avg_diff_z_test.append(np.mean(diff_z))
+                std_diff_z_test.append(np.std(diff_z))
 
-            diff_E_train = all_train_labels[:, 0] - all_train_preds[:, 0]
-            avg_diff_E_train.append(np.mean(diff_E_train))
-            std_diff_E_train.append(np.std(diff_E_train))
+                diff_x_train = all_train_labels[:, 1] - all_train_preds[:, 1]
+                avg_diff_x_train.append(np.mean(diff_x_train))
+                std_diff_x_train.append(np.std(diff_x_train))
 
-            diff_x_train = all_train_labels[:, 1] - all_train_preds[:, 1]
-            avg_diff_x_train.append(np.mean(diff_x_train))
-            std_diff_x_train.append(np.std(diff_x_train))
+                diff_y_train = all_train_labels[:, 2] - all_train_preds[:, 2]
+                avg_diff_y_train.append(np.mean(diff_y_train))
+                std_diff_y_train.append(np.std(diff_y_train))
 
-            diff_y_train = all_train_labels[:, 2] - all_train_preds[:, 2]
-            avg_diff_y_train.append(np.mean(diff_y_train))
-            std_diff_y_train.append(np.std(diff_y_train))
-
-            diff_z_train = all_train_labels[:, 3] - all_train_preds[:, 3]
-            avg_diff_z_train.append(np.mean(diff_z_train))
-            std_diff_z_train.append(np.std(diff_z_train))
+                diff_z_train = all_train_labels[:, 3] - all_train_preds[:, 3]
+                avg_diff_z_train.append(np.mean(diff_z_train))
+                std_diff_z_train.append(np.std(diff_z_train))
 
         # Save the best model
         if avg_test_loss < best_vloss:
             best_vloss = avg_test_loss
             opti_epochs = epoch
-            
-            diff_E_test = (all_test_labels[:, 0] - all_test_preds[:, 0])
-            diff_x_test = (all_test_labels[:, 1] - all_test_preds[:, 1])
-            diff_y_test = (all_test_labels[:, 2] - all_test_preds[:, 2])
-            diff_z_test = (all_test_labels[:, 3] - all_test_preds[:, 3])
+            if data_type=="both" or data_type=="energy":
+                diff_E_test = (all_test_labels[:, 0] - all_test_preds[:, 0])
+            if data_type=="both" or data_type=="spatial":
+                diff_x_test = (all_test_labels[:, 1] - all_test_preds[:, 1])
+                diff_y_test = (all_test_labels[:, 2] - all_test_preds[:, 2])
+                diff_z_test = (all_test_labels[:, 3] - all_test_preds[:, 3])
 
             model_path = f"/pbs/home/l/lperon/work_JUNO/models/MLP/model.pth"  # Path to save the best model
             torch.save(model.state_dict(), model_path)
-    print(f'Optimal epoch = {opti_epochs}')
-    return (train_losses, test_losses,
-            avg_diff_E_train, avg_diff_x_train, avg_diff_y_train, avg_diff_z_train, 
-            std_diff_E_train, std_diff_x_train, std_diff_y_train, std_diff_z_train, 
-            avg_diff_E_test, avg_diff_x_test, avg_diff_y_test, avg_diff_z_test, 
-            std_diff_E_test, std_diff_x_test, std_diff_y_test, std_diff_z_test,
-            diff_E_train, diff_x_train, diff_y_train, diff_z_train, 
-            diff_E_test, diff_x_test, diff_y_test, diff_z_test)
+
+    if data_type=="both":
+        return (train_losses, test_losses,
+                avg_diff_E_train, avg_diff_x_train, avg_diff_y_train, avg_diff_z_train, 
+                std_diff_E_train, std_diff_x_train, std_diff_y_train, std_diff_z_train, 
+                avg_diff_E_test, avg_diff_x_test, avg_diff_y_test, avg_diff_z_test, 
+                std_diff_E_test, std_diff_x_test, std_diff_y_test, std_diff_z_test,
+                diff_E_train, diff_x_train, diff_y_train, diff_z_train, 
+                diff_E_test, diff_x_test, diff_y_test, diff_z_test)
+    
+    elif data_type=="energy":
+        return (train_losses, test_losses,
+            avg_diff_E_train, std_diff_E_train, 
+            avg_diff_E_test, std_diff_E_test, 
+            diff_E_train, diff_E_test)
+    
+    elif data_type=="spatial":
+        return (train_losses, test_losses,
+                avg_diff_x_train, avg_diff_y_train, avg_diff_z_train, 
+                std_diff_x_train, std_diff_y_train, std_diff_z_train, 
+                avg_diff_x_test, avg_diff_y_test, avg_diff_z_test, 
+                std_diff_x_test, std_diff_y_test, std_diff_z_test,
+                diff_x_train, diff_y_train, diff_z_train, 
+                diff_x_test, diff_y_test, diff_z_test)
