@@ -6,7 +6,7 @@ detector and electronics simulation files. The data files are structured for neu
 entries detailing energy deposits, charge sums, and charge timings across Large PMTs (LPMTs).
 
 Created by: Lukas Peron
-Last Update: 17/11/2024
+Last Update: 18/11/2024
 
 Overview:
 ---------
@@ -60,13 +60,6 @@ def create_data(num_file):
         NGenEvts, TrueEvtID, WaveformQ, PmtID_WF = elecsim.load_attributes(entry, "NGenEvts", "TrueEvtID", "WaveformQ", "PmtID_WF")
 
         if NGenEvts == 1:  # Check for non-pileup condition
-            # if TrueEvtID[0] in true_evt_passed:  # Summation for repeated true events
-            #     adc_count = create_adc_count(WaveformQ)
-            #     init_entry = true_evt_passed.index(TrueEvtID[0])
-            #     for i in range(len(PmtID_WF)):
-            #         lst_loc = int(3 * PmtID_WF[i])
-            #         elecsim_data[init_entry][lst_loc + 1] += np.sum(adc_count[i])
-            # else:
             true_evt_passed.append(TrueEvtID[0])
             detsim_tree_evt.GetEntry(TrueEvtID[0])
             edep, edepX, edepY, edepZ = detsim.load_attributes(detsim_tree_evt, "edep", "edepX", "edepY", "edepZ")
