@@ -6,6 +6,9 @@ The `load_data` function loads event data from multiple files and converts it to
 The `create_dataset` function splits the data into training and testing sets, and the `scale_data` function
 applies standard scaling to each set to prepare the data for neural network training.
 
+Created by: Lukas Peron
+Last Update: 18/11/2024
+
 Overview:
 ---------
 The script performs the following steps:
@@ -41,9 +44,9 @@ from sklearn.preprocessing import StandardScaler
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 pwd = "/sps/l2it/lperon/JUNO/txt/data_profiling/"
 
-def load_data(num_file_min=0, num_file_max=118):
+def load_data(data_type, num_file_min=0, num_file_max=118):
     """
-    Load ELECSIM and DETSIM data from a specified range of files and convert to PyTorch tensors.
+    Load ELECSIM and DETSIM energy data from a specified range of files and convert to PyTorch tensors.
 
     Parameters:
     -----------
@@ -55,20 +58,45 @@ def load_data(num_file_min=0, num_file_max=118):
     Returns:
     --------
     tuple
-        A tuple (X, y) where X is the ELECSIM data and y is the DETSIM data as PyTorch tensors.
+        A tuple (X, y) where X is the ELECSIM energy data and y is the DETSIM energy data as PyTorch tensors.
     
     Raises:
     -------
     IOError
         If a file in the specified range is missing or cannot be opened.
     """
-    X = np.loadtxt(pwd + f"elecsim_data_file{num_file_min}.txt")
-    y = np.loadtxt(pwd + f"detsim_data_file{num_file_min}.txt")
-    print(f"Loaded file : {num_file_min}")
-    for i in range(num_file_min + 1, num_file_max + 1):
-        X = np.concatenate((X, np.loadtxt(pwd + f"elecsim_data_file{i}.txt")), axis=0)
-        y = np.concatenate((y, np.loadtxt(pwd + f"detsim_data_file{i}.txt")), axis=0)
-        print(f"Loaded file : {i}")
+    if data_type=="both":
+        X = np.loadtxt(pwd + f"elecsim_data_file{num_file_min}.txt")
+        y = np.loadtxt(pwd + f"detsim_data_file{num_file_min}.txt")
+        print(f"Loaded file : {num_file_min}")
+        for i in range(num_file_min + 1, num_file_max + 1):
+            X = np.concatenate((X, np.loadtxt(pwd + f"elecsim_data_file{i}.txt")), axis=0)
+            y = np.concatenate((y, np.loadtxt(pwd + f"detsim_data_file{i}.txt")), axis=0)
+            print(f"Loaded file : {i}")
+    
+    if data_type=="energy":
+        y = np.loadtxt(pwd + f"detsim_data_file{num_file_min}.txt", usecols=0) #Energy only
+        # print(len(y))
+        X = np.loadtxt(pwd + f"elecsim_data_file{num_file_min}.txt").flatten().reshape(-1,3)[:,:2].reshape(y.shape[0], -1) #keep chi_i and Q_i only
+        print(f"Loaded file : {num_file_min}")
+        for i in range(num_file_min + 1, num_file_max + 1):
+            temp_y = np.loadtxt(pwd + f"detsim_data_file{i}.txt", usecols=0) #Energy only
+            y = np.concatenate((y, temp_y), axis=0)
+            temp_X = np.loadtxt(pwd + f"elecsim_data_file{i}.txt").flatten().reshape(-1,3)[:,:2].reshape(temp_y.shape[0], -1)
+            X = np.concatenate((X, temp_X), axis=0)
+            print(f"Loaded file : {i}")
+        y=y.reshape(-1,1)
+    
+    if data_type=="spatial": 
+        y = np.loadtxt(pwd + f"detsim_data_file{num_file_min}.txt", usecols=(1,2,3))
+        X = np.loadtxt(pwd + f"elecsim_data_file{num_file_min}.txt").flatten().reshape(-1,3)[:,[0,2]].reshape(y.shape[0], -1)
+        print(f"Loaded file : {num_file_min}")
+        for i in range(num_file_min + 1, num_file_max + 1):
+            temp_y = np.loadtxt(pwd + f"detsim_data_file{i}.txt", usecols=(1,2,3))
+            y = np.concatenate((y, temp_y), axis=0)
+            temp_X = np.loadtxt(pwd + f"elecsim_data_file{i}.txt").flatten().reshape(-1,3)[:,[0,2]].reshape(temp_y.shape[0], -1)
+            X = np.concatenate((X, temp_X), axis=0)
+            print(f"Loaded file : {i}")
     X = torch.tensor(X, dtype=torch.float32).to(device)
     y = torch.tensor(y, dtype=torch.float32).to(device)
     return X, y
