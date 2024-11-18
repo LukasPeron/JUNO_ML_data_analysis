@@ -5,6 +5,9 @@ This script defines a fully connected Multilayer Perceptron (MLP) neural network
 for training on JUNO simulation data. The model uses the PyTorch framework and performs regression to predict 
 primary vertex information (energy and coordinates) based on PMT data.
 
+Created by: Lukas Peron
+Last Update: 18/11/2024
+
 Overview:
 ---------
 The script performs the following steps:
@@ -47,7 +50,7 @@ class MLP_JUNO(nn.Module):
     Multilayer Perceptron (MLP) model for JUNO data regression.
 
     This MLP architecture uses several hidden layers with ReLU activation, dropout, and layer normalization.
-    The model predicts the primary vertex information: energy (E) and coordinates (x, y, z) based on input data
+    The model predicts the primary vertex information: either energy (E) or coordinates (x, y, z) based on input data
     from PMTs (Photomultiplier Tubes) in the JUNO experiment.
 
     Parameters:
@@ -63,12 +66,23 @@ class MLP_JUNO(nn.Module):
 
     Output:
     -------
-    The model outputs a tensor with 4 values, corresponding to energy (E) and coordinates (x, y, z).
+    The model outputs a tensor with 1 or 3 values, corresponding to energy (E) or the coordinates (x, y, z).
     """
-    def __init__(self, dropout_prop):
+    def __init__(self, dropout_prop, data_type):
         super(MLP_JUNO, self).__init__()
+        if data_type=="both":
+            in_dim = 3*17612
+            out_dim = 4
+        elif data_type=="energy":
+            in_dim = 2*17612
+            out_dim = 1
+        elif data_type=="spatial":
+            in_dim = 2*17612
+            out_dim = 3
+        else:
+            raise AssertionError('You must provide a valid data_type : "energy" or "spatial".')
         self.layers = nn.Sequential(
-            nn.Linear(3 * 17612, 1000),
+            nn.Linear(in_dim, 1000),
             nn.LayerNorm(1000),
             nn.ReLU(),
             nn.Dropout(dropout_prop),
@@ -87,7 +101,7 @@ class MLP_JUNO(nn.Module):
             nn.Linear(125, 64),
             nn.LayerNorm(64),
             nn.ReLU(),
-            nn.Linear(64, 4)  # Output 4 (E, x, y, z)
+            nn.Linear(64, out_dim)  # Output 4 (E, x, y, z)
         )
 
     def forward(self, x):
@@ -106,7 +120,7 @@ class MLP_JUNO(nn.Module):
         """
         return self.layers(x)
 
-def load_model(train_dataset, test_dataset, batch_size=64, dropout_prop=0.2, lr=1e-5):
+def load_model(data_type, train_dataset, test_dataset, batch_size=64, dropout_prop=0.2, lr=1e-5):
     """
     Initialize data loaders, the MLP model, loss function, and optimizer for training.
 
@@ -138,7 +152,7 @@ def load_model(train_dataset, test_dataset, batch_size=64, dropout_prop=0.2, lr=
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Initialize the model, optimizer, and loss function
-    model = MLP_JUNO(dropout_prop=dropout_prop).to(device)
+    model = MLP_JUNO(dropout_prop=dropout_prop, data_type=data_type).to(device)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Number of parameters: {num_params}")
 
