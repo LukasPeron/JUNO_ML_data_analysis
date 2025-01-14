@@ -9,3 +9,4 @@ This project summarizes the work done by L. Péron (ENS, France), S. Caillou and
     - [ ] Add CNN 3D model
     - [ ] Add GNN sub package
     - [ ] Add GNN example code
+    - [ ] Add script documentation for `run_NF_test.py`
