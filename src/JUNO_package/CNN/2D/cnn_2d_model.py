@@ -1,43 +1,50 @@
 """
 Deep Learning Models for JUNO 2D CNN Data
 
-CREATED BY : LUKAS PERON  
-LAST UPDATE : [DATE]  
-PURPOSE : DEFINE CNN MODELS AND LOAD FUNCTIONALITY FOR JUNO SIMULATION DATA  
+CREATED BY   : LUKAS PERON  
+LAST UPDATED : 14/01/2025  
+PURPOSE      : Define CNN models and provide functionality for processing JUNO simulation data.
 
-This script defines various CNN architectures for processing 2D CNN data generated from JUNO simulations.  
-It also includes utilities for loading models and creating instances of standard architectures such as ResNet and VGG.
+Description:
+------------
+This script implements various Convolutional Neural Network (CNN) architectures and utilities for processing
+2D CNN data generated from JUNO simulations. The main functionalities include:
 
-Overview:
----------
-1. **`SimpleCNN`**:
-   - A custom CNN architecture for processing large (4368 × 2184) image data.
-   - Features convolutional, batch normalization, and fully connected layers.
+1. `SimpleCNN`:  
+   - A custom CNN architecture designed for large image data (400x200).
+   - Contains convolutional layers, batch normalization, ReLU activations, pooling layers, and fully connected layers.  
+   - Suitable for regression tasks (e.g., energy prediction or 3D position estimation).
 
-2. **`load_model`**:
-   - Prepares data loaders, initializes the `SimpleCNN` model, and sets up the optimizer and loss function.
+2. `load_model`:  
+   - Initializes the `SimpleCNN` model, prepares data loaders, and sets up the optimizer and loss function for training.
 
-3. **`create_resnet`**:
-   - Creates a pre-trained ResNet50 model adapted for JUNO data.
+3. `create_non_pretrained_resnet`:  
+   - Generates a ResNet50 model (non-pretrained) adapted for JUNO data.  
 
-4. **`create_vgg`**:
-   - Creates a pre-trained VGG16 model adapted for JUNO data.
+4. `create_non_pretrained_vgg`:  
+   - Generates a VGG16 model (non-pretrained) adapted for JUNO data.
 
 Dependencies:
 -------------
-- PyTorch
-- torchvision (for pre-trained models)
-- numpy
-- gc (garbage collection for memory optimization)
+- PyTorch  
+- torchvision (for pre-trained models)  
+- numpy  
+- gc (garbage collection for memory management)
+
+Features:
+---------
+- Supports GPU acceleration (if available).  
+- Implements memory optimization techniques by clearing unused variables and caches.  
+- Provides a flexible framework for CNN-based JUNO data analysis.  
 
 """
 
 import torch
 import torch.nn as nn
+import torchvision.models as models
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import gc
-from torchvision import models
 
 # Clear unnecessary variables and empty the GPU cache
 gc.collect()
@@ -56,52 +63,53 @@ class SimpleCNN(nn.Module):
         Number of input channels in the image (e.g., 3 for RGB images).
     num_outputs : int, optional (default=1)
         Number of output nodes (e.g., 1 for energy, 3 for positions).
-    image_size : tuple, optional (default=(4368, 2184))
+    image_size : tuple, optional (default=(400, 200))
         Dimensions of the input image.
 
     Notes:
     ------
-    - Designed for processing large (4368 × 2184) images.
+    - Designed for processing large (400 x 200) images.
     - Includes multiple convolutional, batch normalization, ReLU, and pooling layers.
     - Flattened convolutional features are passed through fully connected layers for regression tasks.
     """
 
-    def __init__(self, input_channels=3, num_outputs=1, image_size=(4368, 2184)):
+    def __init__(self, input_channels=3, num_outputs=1, image_size=(400, 200)):
         super(SimpleCNN, self).__init__()
 
         # Convolutional layers
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(input_channels, 256, kernel_size=32, stride=5, padding=1),
+            nn.Conv2d(input_channels, 64, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=32, stride=5, padding=1),
+            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(256, 512, kernel_size=8, stride=2, padding=1),
+            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(512),
             nn.ReLU(),
-            nn.Conv2d(512, 512, kernel_size=8, stride=2, padding=1),
+            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(512),
             nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(512, 2048, kernel_size=8, stride=2, padding=1),
-            nn.BatchNorm2d(2048),
-            nn.ReLU(),
-            nn.Conv2d(2048, 2048, kernel_size=8, stride=2, padding=1),
-            nn.BatchNorm2d(2048),
-            nn.ReLU(),
-            nn.Conv2d(2048, 2048, kernel_size=8, stride=2, padding=1),
-            nn.BatchNorm2d(2048),
-            nn.ReLU(),
-            nn.Conv2d(2048, 4096, kernel_size=8, stride=2, padding=1),
-            nn.BatchNorm2d(4096),
-            nn.ReLU(),
-            nn.Conv2d(4096, 4096, kernel_size=8, stride=2, padding=1),
-            nn.BatchNorm2d(4096),
-            nn.ReLU(),
-            nn.Conv2d(4096, 4096, kernel_size=8, stride=2, padding=1),
-            nn.BatchNorm2d(4096),
+            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(512),
             nn.ReLU(),
         )
 
@@ -115,7 +123,7 @@ class SimpleCNN(nn.Module):
             nn.Linear(1024, 512),
             nn.ReLU(),
             nn.Linear(512, 100),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(100, num_outputs)
         )
 
@@ -137,8 +145,9 @@ class SimpleCNN(nn.Module):
         """
         with torch.no_grad():
             x = torch.zeros(1, input_channels, *image_size)
-            x = self.conv_layers(x)
-            return x.view(x.size(0), -1).size(1)
+            for layer in self.conv_layers:
+                x = layer(x)
+            return x.reshape(x.size(0), -1).size(1)
 
     def forward(self, x):
         """
@@ -155,7 +164,7 @@ class SimpleCNN(nn.Module):
             Output tensor of shape `(batch_size, num_outputs)`.
         """
         x = self.conv_layers(x)
-        x = x.view(x.size(0), -1)
+        x = x.reshape(x.size(0), -1)
         x = self.fc_layers(x)
         return x
 
@@ -186,11 +195,14 @@ def load_model(label_type, train_dataset, test_dataset, batch_size, lr):
         - criterion : Loss function (MSELoss).
         - optimizer : Optimizer (Adam).
     """
-    num_outputs = 1 if label_type == "energy" else 3
+    if label_type == "energy":
+        num_outputs = 1
+    elif label_type == "positions":
+        num_outputs = 3
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    cnn = SimpleCNN(num_outputs=num_outputs, image_size=(4368, 2184)).to(device)
+    cnn = SimpleCNN(num_outputs=num_outputs, image_size=(400, 200)).to(device)
     num_params = sum(p.numel() for p in cnn.parameters() if p.requires_grad)
     print(f"Number of parameters: {num_params}")
 
@@ -198,38 +210,12 @@ def load_model(label_type, train_dataset, test_dataset, batch_size, lr):
     optimizer = optim.Adam(cnn.parameters(), lr=lr)
     return train_loader, test_loader, cnn, criterion, optimizer
 
-def create_resnet(num_outputs=1):
-    """
-    Create a pre-trained ResNet50 model for JUNO data.
+def create_non_pretrained_resnet(num_outputs):
+    model = models.resnet50(pretrained=False)
+    model.fc = nn.Linear(model.fc.in_features, num_outputs)  # Adjust the final layer for your output
+    return model
 
-    Parameters:
-    -----------
-    num_outputs : int, optional (default=1)
-        Number of output nodes.
-
-    Returns:
-    --------
-    torch.nn.Module
-        ResNet50 model with updated output layer.
-    """
-    resnet = models.resnet50(pretrained=True)
-    resnet.fc = nn.Linear(resnet.fc.in_features, num_outputs)
-    return resnet
-
-def create_vgg(num_outputs=1):
-    """
-    Create a pre-trained VGG16 model for JUNO data.
-
-    Parameters:
-    -----------
-    num_outputs : int, optional (default=1)
-        Number of output nodes.
-
-    Returns:
-    --------
-    torch.nn.Module
-        VGG16 model with updated output layer.
-    """
-    vgg = models.vgg16(pretrained=True)
-    vgg.classifier[6] = nn.Linear(vgg.classifier[6].in_features, num_outputs)
-    return vgg
+def create_non_pretrained_vgg(num_outputs):
+    model = models.vgg16(pretrained=False)
+    model.classifier[6] = nn.Linear(model.classifier[6].in_features, num_outputs)  # Adjust the final layer for your output
+    return model
