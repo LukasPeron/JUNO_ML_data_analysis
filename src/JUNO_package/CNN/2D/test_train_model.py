@@ -1,64 +1,101 @@
 """
 Training and Testing Loop for CNN Models on JUNO Data
 
-CREATED BY : Lukas Péron  
-LAST UPDATE : 17/12/2024
+CREATED BY   : Lukas Péron  
+LAST UPDATED : 14/01/2025  
+PURPOSE      : Define a robust training and evaluation loop for 2D CNN models on JUNO simulation data.
 
-This script defines a training and evaluation loop for 2D CNN models to process JUNO data.  
-The training process computes the loss for each batch, adjusts model weights, and saves the best-performing model.  
-The evaluation process calculates metrics to compare predictions against ground truth labels.
+Description:
+------------
+This script implements the training and testing loops for 2D CNN models, enabling predictions for energy 
+and spatial positions based on JUNO simulation data. It computes metrics to evaluate the model's performance 
+and saves the best-performing model based on test loss.
+
+Key Features:
+-------------
+1. **Flexible Prediction Types**:
+   - `label_type="energy"`: Predicts energy as a single value.
+   - `label_type="positions"`: Predicts spatial coordinates (x, y, z).
+   - `label_type="both"`: Simultaneously predicts energy and spatial positions.
+
+2. **Metrics and Results**:
+   - Tracks training and testing losses across epochs.
+   - Computes mean and standard deviation of prediction errors.
+   - Saves the best model based on minimum test loss.
+
+3. **Efficient Resource Management**:
+   - Includes garbage collection and GPU memory cleanup for optimal performance.
 
 Parameters:
 -----------
-label_type : str
-    Specifies the type of output being predicted:
-    - "energy": Single value prediction for energy.
-    - "positions": 3D vector prediction for spatial coordinates.
-    - "both": Combines "energy" and "positions" predictions.
+label_type : str  
+    Type of prediction: `"energy"`, `"positions"`, or `"both"`.  
 
-train_loader : torch.utils.data.DataLoader
-    DataLoader for the training set.
+train_loader : torch.utils.data.DataLoader  
+    DataLoader for the training dataset.  
 
-test_loader : torch.utils.data.DataLoader
-    DataLoader for the test set.
+test_loader : torch.utils.data.DataLoader  
+    DataLoader for the testing dataset.  
 
-scaler_y_train : sklearn.preprocessing.StandardScaler
-    Scaler object for normalizing training labels.
+cnn : torch.nn.Module  
+    The CNN model to be trained and evaluated.  
 
-scaler_y_test : sklearn.preprocessing.StandardScaler
-    Scaler object for normalizing test labels.
+criterion : torch.nn.Module  
+    Loss function (e.g., `torch.nn.MSELoss`).  
 
-cnn : torch.nn.Module
-    The CNN model to be trained and evaluated.
+optimizer : torch.optim.Optimizer  
+    Optimizer for weight updates (e.g., `torch.optim.Adam`).  
 
-criterion : torch.nn.Module
-    The loss function (e.g., MSELoss).
+lr : float  
+    Learning rate for the optimizer.  
 
-optimizer : torch.optim.Optimizer
-    The optimizer (e.g., Adam).
+batch_size : int  
+    Batch size used for training.  
 
-n_epochs : int, optional (default=10)
-    Number of training epochs.
+n_epochs : int, optional (default=10)  
+    Number of epochs for training.  
 
 Returns:
 --------
-tuple
-    Training and testing metrics, including:
-    - `train_losses`, `test_losses`: Average losses per epoch.
-    - If `label_type == "energy"`:
-      - Mean and standard deviation of energy differences for train/test.
-      - Energy differences between true and predicted values.
-    - If `label_type == "positions"`:
-      - Mean and standard deviation of differences for x, y, z coordinates for train/test.
-      - Differences for each coordinate between true and predicted values.
+tuple  
+    Training and testing metrics, including:  
+    - `train_losses`, `test_losses`: Average losses per epoch.  
+    - If `label_type == "energy"`:  
+      - Mean and standard deviation of energy prediction errors.  
+      - Energy differences between true and predicted values for train/test sets.  
+    - If `label_type == "positions"`:  
+      - Mean and standard deviation of prediction errors for x, y, z coordinates.  
+      - Prediction differences for x, y, z coordinates for train/test sets.  
+
+Features:
+---------
+- **Automatic Best Model Saving**:  
+  Saves the model with the lowest test loss to disk for future evaluation.  
+- **Loss Curve Visualization**:  
+  Produces `.svg` plots of training and testing losses for detailed analysis.  
+- **Scalable Performance**:  
+  Compatible with both CPU and GPU environments.  
+
+Usage:
+------
+1. Ensure the dataset is preprocessed and loaders (`train_loader`, `test_loader`) are configured.  
+2. Initialize the CNN model, loss function, and optimizer.  
+3. Set the appropriate `label_type` based on the prediction task.  
+4. Call `train_test_loop` and pass the required parameters.  
 
 """
+
 
 import numpy as np
 import torch
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+import gc
+import matplotlib
+matplotlib.use('Agg')  # Use 'Agg' backend if running without display
+matplotlib.rcParams.update({'font.size': 16})
+import matplotlib.pyplot as plt
 
-def train_test_loop(label_type, train_loader, test_loader, scaler_y_train, scaler_y_test, cnn, criterion, optimizer, n_epochs=10):
+def train_test_loop(model_type, label_type, train_loader, test_loader, cnn, criterion, optimizer, lr, batch_size, n_epochs=10):
     """
     Train and evaluate a CNN model on JUNO 2D simulation data.
 
@@ -100,18 +137,12 @@ def train_test_loop(label_type, train_loader, test_loader, scaler_y_train, scale
           - Differences for x, y, z coordinates between true and predicted values.
     """
     best_vloss = 1_000_000
+    best_epoch = -1
 
     # Variables to store training and testing metrics
     train_losses, test_losses = [], []
-
-    avg_diff_E_train, avg_diff_x_train, avg_diff_y_train, avg_diff_z_train = [], [], [], []
-    std_diff_E_train, std_diff_x_train, std_diff_y_train, std_diff_z_train = [], [], [], []
-
-    avg_diff_E_test, avg_diff_x_test, avg_diff_y_test, avg_diff_z_test = [], [], [], []
-    std_diff_E_test, std_diff_x_test, std_diff_y_test, std_diff_z_test = [], [], [], []
-
     # Training loop
-    for epoch in range(n_epochs + 1):
+    for epoch in range(n_epochs):
         cnn.train()
         epoch_loss = 0.0
         all_train_preds, all_train_labels = [], []
@@ -119,20 +150,27 @@ def train_test_loop(label_type, train_loader, test_loader, scaler_y_train, scale
         for inputs, labels in train_loader:
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
-            outputs = cnn(inputs)
+            outputs = cnn(inputs.permute(0, 3, 1, 2))
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
             all_train_preds.append(outputs)
             all_train_labels.append(labels)
-        
         # Inverse transform training labels/predictions and calculate metrics
-        all_train_labels = scaler_y_train.inverse_transform(torch.cat(all_train_labels).cpu().numpy())
-        all_train_preds = scaler_y_train.inverse_transform(torch.cat(all_train_preds).cpu().numpy())
+        # all_train_labels = scaler_y_train.inverse_transform(torch.cat(all_train_labels).cpu().numpy())
+        # all_train_preds = scaler_y_train.inverse_transform(torch.cat(all_train_preds).cpu().numpy())
         avg_train_loss = epoch_loss / len(train_loader)
         train_losses.append(avg_train_loss)
 
+        all_train_preds = torch.cat(all_train_preds).detach().cpu().numpy()
+        all_train_labels = torch.cat(all_train_labels).detach().cpu().numpy()
+
+        # Clear unused variables and call garbage collection
+        del inputs, labels, outputs, loss
+        gc.collect()
+        torch.cuda.empty_cache()
+        
         # Evaluation phase
         cnn.eval()
         with torch.no_grad():
@@ -140,7 +178,7 @@ def train_test_loop(label_type, train_loader, test_loader, scaler_y_train, scale
             all_test_preds, all_test_labels = [], []
             for inputs, labels in test_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
-                outputs = cnn(inputs)
+                outputs = cnn(inputs.permute(0, 3, 1, 2))
                 loss = criterion(outputs, labels)
                 test_epoch_loss += loss.item()
                 all_test_preds.append(outputs)
@@ -148,53 +186,39 @@ def train_test_loop(label_type, train_loader, test_loader, scaler_y_train, scale
         
         avg_test_loss = test_epoch_loss / len(test_loader)
         test_losses.append(avg_test_loss)
+        all_test_preds = torch.cat(all_test_preds).detach().cpu().numpy()
+        all_test_labels = torch.cat(all_test_labels).detach().cpu().numpy()
 
         # Inverse transform test labels/predictions and calculate metrics
-        all_test_labels = scaler_y_test.inverse_transform(torch.cat(all_test_labels).cpu().numpy())
-        all_test_preds = scaler_y_test.inverse_transform(torch.cat(all_test_preds).cpu().numpy())
-        print(f"{epoch + 1}/{n_epochs + 1}, Train Loss: {avg_train_loss:.2e}")
+        # all_test_labels = scaler_y_test.inverse_transform(torch.cat(all_test_labels).cpu().numpy())
+        # all_test_preds = scaler_y_test.inverse_transform(torch.cat(all_test_preds).cpu().numpy())
+        print(f"{epoch + 1}/{n_epochs}, Train Loss: {avg_train_loss:.2e}")
 
         # Calculate differences every 10 epochs
-        if epoch % 10 == 0:
-            if label_type in {"energy", "both"}:
-                diff_E_train = all_train_labels[:, 0] - all_train_preds[:, 0]
-                diff_E_test = all_test_labels[:, 0] - all_test_preds[:, 0]
-
-                avg_diff_E_train.append(np.mean(diff_E_train))
-                std_diff_E_train.append(np.std(diff_E_train))
-                avg_diff_E_test.append(np.mean(diff_E_test))
-                std_diff_E_test.append(np.std(diff_E_test))
-
-            if label_type in {"positions", "both"}:
-                diff_x_train = all_train_labels[:, 0] - all_train_preds[:, 0]
-                diff_y_train = all_train_labels[:, 1] - all_train_preds[:, 1]
-                diff_z_train = all_train_labels[:, 2] - all_train_preds[:, 2]
-
-                diff_x_test = all_test_labels[:, 0] - all_test_preds[:, 0]
-                diff_y_test = all_test_labels[:, 1] - all_test_preds[:, 1]
-                diff_z_test = all_test_labels[:, 2] - all_test_preds[:, 2]
-
-                avg_diff_x_train.append(np.mean(diff_x_train))
-                std_diff_x_train.append(np.std(diff_x_train))
-                avg_diff_y_train.append(np.mean(diff_y_train))
-                std_diff_y_train.append(np.std(diff_y_train))
-                avg_diff_z_train.append(np.mean(diff_z_train))
-                std_diff_z_train.append(np.std(diff_z_train))
-
-                avg_diff_x_test.append(np.mean(diff_x_test))
-                std_diff_x_test.append(np.std(diff_x_test))
-                avg_diff_y_test.append(np.mean(diff_y_test))
-                std_diff_y_test.append(np.std(diff_y_test))
-                avg_diff_z_test.append(np.mean(diff_z_test))
-                std_diff_z_test.append(np.std(diff_z_test))
-
         # Save the best model
         if avg_test_loss < best_vloss:
             best_vloss = avg_test_loss
-            torch.save(cnn.state_dict(), "/pbs/home/l/lperon/work_JUNO/cnns/CNN/2D/cnn.pth")
+            best_epoch = epoch
+            torch.save(cnn.state_dict(), f"/pbs/home/l/lperon/work_JUNO/models/CNN/2D/cnn_2d_{model_type}_{label_type}.pth")
+
+        # Clear unused variables and call garbage collection
+        del inputs, labels, outputs, loss
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    pwd_saving = f"/pbs/home/l/lperon/work_JUNO/figures/CNN/2d/{label_type}/"
+
+    # Plot loss curves
+    fig, ax1 = plt.subplots()
+    ax1.loglog(range(n_epochs), train_losses, color='b', label='Training Loss')
+    ax1.loglog(range(n_epochs), test_losses, color='r', label='Test Loss')
+    ax1.vlines(best_epoch, min(train_losses + test_losses), max(train_losses + test_losses), color='g', linestyle='--', label='Best Model')
+    ax1.set_xlabel('Epochs')
+    ax1.set_ylabel('Loss')
+    ax1.grid()
+    fig.legend()
+    fig.tight_layout()
+    plt.savefig(pwd_saving + f"unique_{label_type}_loss_long_lr={lr:.0e}_batch_size={batch_size:.0f}_model_{model_type}.svg")
 
     # Return results based on `label_type`
-    if label_type == "energy":
-        return train_losses, test_losses, avg_diff_E_train, std_diff_E_train, avg_diff_E_test, std_diff_E_test, diff_E_train, diff_E_test
-    elif label_type == "positions":
-        return train_losses, test_losses, avg_diff_x_train, avg_diff_y_train, avg_diff_z_train, std_diff_x_train, std_diff_y_train, std_diff_z_train, avg_diff_x_test, avg_diff_y_test, avg_diff_z_test, std_diff_x_test, std_diff_y_test, std_diff_z_test, diff_x_train, diff_y_train, diff_z_train, diff_x_test, diff_y_test, diff_z_test
+    return train_losses, test_losses, best_epoch
