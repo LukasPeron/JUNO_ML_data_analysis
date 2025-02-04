@@ -141,7 +141,7 @@ def create_data_cnn_2d(num_file):
 
     for entry_num, entry in enumerate(tree_elec):
         TrueEvtID, WaveformQ, PmtID_WF = elec.load_attributes(entry, "TrueEvtID", "WaveformQ", "PmtID_WF")
-        if len(TrueEvtID) > 0:
+        if len(TrueEvtID) == 1: #no pile up situation
             print(entry_num)
             lst_pmt_on = PmtID_WF
             TrueEvtID = TrueEvtID[0]
